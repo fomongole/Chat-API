@@ -1,26 +1,34 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* This forces Tailwind to use the "class" strategy.
+   It tells Tailwind to only apply dark styles if the ".dark" class is present.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary-color);
+  --color-primary-foreground: white;
+
+  /* Modern Neutral Grays */
+  --color-zinc-50: #fafafa;
+  --color-zinc-950: #09090b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+  --primary-color: #2563eb; /* Corporate Blue */
+}
+
+/* This matches the "attribute='class'" setting in your ThemeProvider.
+   When next-themes adds this class, these variables activate.
+*/
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

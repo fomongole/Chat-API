@@ -19,3 +19,12 @@ export const login = catchAsync(async (req: Request, res: Response) => {
         token
     });
 });
+
+export const getAllUsers = catchAsync(async (req: any, res: Response) => {
+    const users = await authService.getAllUsers(req.user.id);
+
+    res.status(200).json({
+        status: 'success',
+        data: { users }
+    });
+});

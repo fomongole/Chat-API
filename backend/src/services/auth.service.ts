@@ -56,6 +56,19 @@ export class AuthService {
         const token = generateToken({ id: user.id, username: user.username });
         return { token };
     }
+
+    async getAllUsers(currentUserId: string) {
+        return await prisma.user.findMany({
+            where: {
+                id: { not: currentUserId }
+            },
+            select: {
+                id: true,
+                username: true,
+                email: true
+            }
+        });
+    }
 }
 
 export const authService = new AuthService();

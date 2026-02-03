@@ -3,21 +3,28 @@ import { chatService } from '../services/chat.service';
 import { catchAsync } from '../utils/catch.async';
 
 export const registerChatHandlers = (io: Server, socket: Socket) => {
+    const user = (socket as any).user;
 
-    // 1. Emit history to the user who just connected
-    chatService.getRecentMessages().then(messages => {
-        socket.emit("load_history", messages);
+    // Join a private conversation
+    socket.on("join_conversation", async (data: { recipientId: string }) => {
+        const conversation = await chatService.getOrCreateConversation(user.id, data.recipientId);
+
+        // Put the user in the room
+        socket.join(conversation.id);
+
+        // Send history for THIS conversation only
+        const history = await chatService.getConversationHistory(conversation.id);
+        socket.emit("load_history", history);
+
+        console.log(`User ${user.username} joined room: ${conversation.id}`);
     });
 
-    const handleMessage = catchAsync(async (data: { message: string }) => {
-        const user = (socket as any).user;
+    const handlePrivateMessage = catchAsync(async (data: { conversationId: string, message: string }) => {
+        const savedMessage = await chatService.processPrivateMessage(user.id, data.conversationId, data.message);
 
-        // Save to DB
-        const savedMessage = await chatService.processMessage(user.id, data.message);
-
-        // Broadcast to everyone
-        io.emit("receive_message", savedMessage);
+        // Emit only to people in that conversation room
+        io.to(data.conversationId).emit("receive_message", savedMessage);
     });
 
-    socket.on("send_message", handleMessage);
+    socket.on("send_message", handlePrivateMessage);
 };

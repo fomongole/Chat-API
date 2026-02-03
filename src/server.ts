@@ -1,37 +1,25 @@
-import express from 'express';
-import { createServer } from 'http';
-import { Server, Socket } from 'socket.io';
+import http from 'http';
+import { Server } from 'socket.io';
+import app from './app';
+import { env } from './config/env';
+import { registerChatHandlers } from './controllers/chat.controller';
+import { authMiddleware } from './middlewares/auth.middleware';
 
-const app = express();
-const httpServer = createServer(app);
+const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-    cors: {
-        origin: "*"
-    }
+    cors: { origin: "*" }
 });
 
-// 1. Connection: The moment a client shakes hands with the server
-io.on("connection", (socket: Socket) => {
-    console.log(`✨ New connection: ${socket.id}`);
+io.use(authMiddleware);
 
-    //2. Listen for the 'send_message' event from the clients
-    socket.on("send_message", (data: { message: string }) => {
-        console.log(`📩 Message received from ${socket.id}:`, data.message);
+io.on("connection", (socket) => {
+    registerChatHandlers(io, socket);
 
-        //3. Emit the 'receive_message' event to the client
-        io.emit("receive_message", {
-            userId: socket.id,
-            message: data.message,
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    socket.on("disconnect", (reason) => {
-        console.log(`❌ User ${socket.id} disconnected. Reason: ${reason}`);
+    socket.on("disconnect", () => {
+        console.log(`🔌 Disconnected: ${socket.id}`);
     });
 });
 
-const PORT = 3000;
-httpServer.listen(PORT, () => {
-    console.log(`🚀 Server listening on http://localhost:${PORT}`);
+httpServer.listen(env.PORT, () => {
+    console.log(`🚀 Secure Server running on port ${env.PORT}`);
 });

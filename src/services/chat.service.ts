@@ -1,12 +1,39 @@
+import { prisma } from '../config/prisma';
+
 export class ChatService {
-    async processMessage(userId: string, message: string) {
-        console.log(`Service: Processing message from ${userId}`);
+    async processMessage(userId: string, content: string) {
+
+        const newMessage = await prisma.message.create({
+            data: {
+                content: content,
+                authorId: userId,
+            },
+            include: {
+                author: {
+                    select: { username: true }
+                }
+            }
+        });
 
         return {
-            userId,
-            message,
-            timestamp: new Date().toISOString()
+            id: newMessage.id,
+            userId: newMessage.authorId,
+            username: newMessage.author.username,
+            message: newMessage.content,
+            timestamp: newMessage.createdAt
         };
+    }
+
+    async getRecentMessages(limit = 50) {
+        return await prisma.message.findMany({
+            take: limit,
+            orderBy: { createdAt: 'asc' },
+            include: {
+                author: {
+                    select: { username: true }
+                }
+            }
+        });
     }
 }
 

@@ -8,6 +8,10 @@ export interface User {
     isPrivate?: boolean;
     isTyping?: boolean; // For UI use only
     unreadCount?: number;
+
+    // For Sidebar Sorting and Preview
+    lastMessage?: string;
+    lastActivity?: string | Date;
 }
 
 export interface Message {

@@ -2,7 +2,10 @@ import { prisma } from '../config/prisma';
 import { AppError } from '../utils/app.error';
 
 export class ChatService {
-    // Find or create a 1-on-1 conversation
+    /**
+     * Finds or Creates a 1-on-1 Conversation.
+     * Uses strict AND logic to prevent duplicate conversations between same 2 users.
+     */
     async getOrCreateConversation(user1Id: string, user2Id: string) {
         let conversation = await prisma.conversation.findFirst({
             where: {
@@ -27,31 +30,34 @@ export class ChatService {
         return conversation;
     }
 
+    /**
+     * Handles message creation securely.
+     * * ATOMIC TRANSACTION:
+     * We wrap message creation and conversation update in a $transaction.
+     * Why? To ensure the Conversation's 'updatedAt' field ALWAYS reflects the latest message time.
+     * This is crucial for sorting the sidebar correctly.
+     */
     async processPrivateMessage(userId: string, conversationId: string, content: string, replyToId?: string) {
-        const newMessage = await prisma.message.create({
-            data: {
-                content,
-                author: { connect: { id: userId } },
-                conversation: { connect: { id: conversationId } },
-                ...(replyToId && { replyTo: { connect: { id: replyToId } } })
-            },
-            include: {
-                author: {
-                    select: {
-                        id: true,
-                        username: true,
-                        image: true,
-                    }
+        const [newMessage] = await prisma.$transaction([
+            // 1. Create the message
+            prisma.message.create({
+                data: {
+                    content,
+                    author: { connect: { id: userId } },
+                    conversation: { connect: { id: conversationId } },
+                    ...(replyToId && { replyTo: { connect: { id: replyToId } } })
                 },
-                replyTo: {
-                    select: {
-                        id: true,
-                        content: true,
-                        author: { select: { username: true } }
-                    }
+                include: {
+                    author: { select: { id: true, username: true, image: true } },
+                    replyTo: { select: { id: true, content: true, author: { select: { username: true } } } }
                 }
-            }
-        });
+            }),
+            // 2. Update conversation timestamp (Trigger for "Recent Chats" sort order)
+            prisma.conversation.update({
+                where: { id: conversationId },
+                data: { updatedAt: new Date() }
+            })
+        ]);
 
         return this.formatMessage(newMessage);
     }
@@ -62,6 +68,7 @@ export class ChatService {
         if (!message) throw new AppError("Message not found", 404);
         if (message.authorId !== userId) throw new AppError("You can only delete your own messages", 403);
 
+        // Soft Delete: We keep the record but hide content
         const deletedMessage = await prisma.message.update({
             where: { id: messageId },
             data: {
@@ -81,29 +88,16 @@ export class ChatService {
         const messages = await prisma.message.findMany({
             where: { conversationId },
             take: limit,
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'asc' }, // Oldest first for chat window
             include: {
-                author: {
-                    select: {
-                        id: true,
-                        username: true,
-                        image: true
-                    }
-                },
-                replyTo: {
-                    select: {
-                        id: true,
-                        content: true,
-                        author: { select: { username: true } }
-                    }
-                }
+                author: { select: { id: true, username: true, image: true } },
+                replyTo: { select: { id: true, content: true, author: { select: { username: true } } } }
             }
         });
 
         return messages.map(msg => this.formatMessage(msg));
     }
 
-    // Mark all messages in a conversation as read
     async markMessagesAsRead(conversationId: string, currentUserId: string) {
         await prisma.message.updateMany({
             where: {
@@ -115,6 +109,7 @@ export class ChatService {
         });
     }
 
+    // Standardizer for message objects sent to frontend
     private formatMessage(msg: any) {
         return {
             id: msg.id,
@@ -124,7 +119,7 @@ export class ChatService {
             image: msg.author.image,
             message: msg.isDeleted ? "This message was deleted" : msg.content,
             isDeleted: msg.isDeleted,
-            isRead: msg.isRead, // Include read status in response
+            isRead: msg.isRead,
             timestamp: msg.createdAt,
             replyTo: msg.replyTo ? {
                 id: msg.replyTo.id,

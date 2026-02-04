@@ -7,25 +7,27 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  username      String         @unique
-  about         String?        @default("Hey there! I'm using Chat App.")
-  image         String?
-  isOnline      Boolean        @default(false)
-  lastSeen      DateTime       @default(now())
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  username  String   @unique
+  about     String?  @default("Hey there! I'm using Chat App.")
+  image     String?
+  isOnline  Boolean  @default(false)
+  lastSeen  DateTime @default(now())
+
   messages      Message[]
   conversations Conversation[] @relation("UserConversations")
   isPrivate     Boolean        @default(false)
 }
 
 model Conversation {
-  id           String    @id @default(uuid())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   messages     Message[]
   participants User[]    @relation("UserConversations")
 }
@@ -37,8 +39,7 @@ model Message {
   authorId       String
   conversationId String
 
-  isRead Boolean @default(false)
-
+  isRead    Boolean @default(false)
   isDeleted Boolean @default(false)
 
   // Reply Functionality

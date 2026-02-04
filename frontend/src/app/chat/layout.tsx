@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSocket } from '@/hooks/useSocket';
-import { useTeamData } from '@/hooks/chat/useTeamData';
+import { useChatList } from '@/hooks/chat/useChatList';
 import { User } from '@/types';
 
 // Components
@@ -13,7 +13,7 @@ import LogoutModal from '@/components/LogoutModal';
 import UserProfileModal from '@/components/UserProfileModal';
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
-    const { users } = useTeamData();
+    const { users } = useChatList();
 
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isLogoutOpen, setIsLogoutOpen] = useState(false);

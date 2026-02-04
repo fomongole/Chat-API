@@ -11,6 +11,9 @@ const io = new Server(httpServer, {
     cors: { origin: "*" }
 });
 
+// Store the io instance on the app to make it accessible in controllers
+app.set('io', io);
+
 io.use(authMiddleware);
 
 io.on("connection", async (socket) => {
@@ -18,8 +21,6 @@ io.on("connection", async (socket) => {
 
     try {
         // 1. Update user to ONLINE in Database
-        // We wrap this in a try/catch. If the user doesn't exist (because of DB reset),
-        // we don't want to crash the server.
         await prisma.user.update({
             where: { id: userId },
             data: { isOnline: true }
@@ -30,7 +31,6 @@ io.on("connection", async (socket) => {
 
     } catch (error) {
         console.error(`⚠️ Could not update user status (User ID: ${userId} might not exist):`);
-        // If the user doesn't exist in DB, disconnect the socket to force frontend to re-login
         socket.disconnect();
         return;
     }
@@ -42,17 +42,18 @@ io.on("connection", async (socket) => {
         console.log(`🔌 Disconnected: ${socket.id}`);
 
         try {
+            const lastSeen = new Date();
             // 2. Update user to OFFLINE and set LAST SEEN
             await prisma.user.update({
                 where: { id: userId },
                 data: {
                     isOnline: false,
-                    lastSeen: new Date()
+                    lastSeen: lastSeen
                 }
             });
 
             // Broadcast offline status
-            socket.broadcast.emit("user_status_change", { userId, isOnline: false, lastSeen: new Date() });
+            socket.broadcast.emit("user_status_change", { userId, isOnline: false, lastSeen });
         } catch (error) {
             // Silently fail if user is already deleted
         }

@@ -6,6 +6,8 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = React.useState(false);
 
+    // This useEffect ensures the component is mounted on the client
+    // to avoid hydration mismatch errors.
     React.useEffect(() => {
         setMounted(true);
     }, []);
@@ -17,8 +19,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return (
         <NextThemesProvider
             attribute="class"
-            defaultTheme="light"
-            enableSystem={false}
+            defaultTheme="system" // Change from 'light' to 'system'
+            enableSystem={true}   // Change from false to true
             storageKey="chat-theme-v2"
             disableTransitionOnChange
         >

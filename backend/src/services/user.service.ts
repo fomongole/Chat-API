@@ -3,15 +3,12 @@ import cloudinary from '../config/cloudinary';
 import { AppError } from '../utils/app.error';
 
 export class UserService {
-    async updateProfile(userId: string, data: { about?: string }, file?: Express.Multer.File) {
+    async updateProfile(userId: string, data: { about?: string; isPrivate?: string }, file?: Express.Multer.File) {
         let imageUrl: string | undefined;
 
-        // 1. Upload image to Cloudinary if a file is provided
         if (file) {
-            // Convert buffer to base64 data URI for Cloudinary
             const b64 = Buffer.from(file.buffer).toString('base64');
             const dataURI = "data:" + file.mimetype + ";base64," + b64;
-
             try {
                 const uploadResponse = await cloudinary.uploader.upload(dataURI, {
                     folder: 'chat-app-profiles',
@@ -19,16 +16,17 @@ export class UserService {
                 });
                 imageUrl = uploadResponse.secure_url;
             } catch (error) {
-                console.error("Cloudinary upload error:", error);
                 throw new AppError('Failed to upload image', 500);
             }
         }
 
-        // 2. Update User in Database
-        const updatedUser = await prisma.user.update({
+        const isPrivateBoolean = data.isPrivate === 'true';
+
+        return await prisma.user.update({
             where: { id: userId },
             data: {
                 ...(data.about && { about: data.about }),
+                ...(data.isPrivate !== undefined && { isPrivate: isPrivateBoolean }),
                 ...(imageUrl && { image: imageUrl }),
             },
             select: {
@@ -37,11 +35,45 @@ export class UserService {
                 email: true,
                 image: true,
                 about: true,
-                isOnline: true
+                isOnline: true,
+                isPrivate: true
             }
         });
+    }
 
-        return updatedUser;
+    async getAllUsers(currentUserId: string) {
+        const users = await prisma.user.findMany({
+            where: { id: { not: currentUserId } },
+            select: {
+                id: true,
+                username: true,
+                image: true,
+                about: true,    // We fetch it, but we might strip it
+                email: true,    // We fetch it, but we might strip it
+                isOnline: true,
+                lastSeen: true,
+                isPrivate: true
+            },
+            orderBy: { isOnline: 'desc' }
+        });
+
+        // ENTERPRISE PRIVACY FILTER
+        // If a user is private, we return ONLY the bare essentials needed for the chat list
+        return users.map(user => {
+            if (user.isPrivate) {
+                return {
+                    id: user.id,
+                    username: user.username,
+                    image: user.image,
+                    isOnline: user.isOnline,
+                    lastSeen: user.lastSeen,
+                    isPrivate: true,
+                    about: null, // STRICT: No bio leaked
+                    email: null  // STRICT: No email leaked
+                };
+            }
+            return user;
+        });
     }
 }
 

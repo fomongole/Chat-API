@@ -8,7 +8,7 @@ const router = Router();
 // Protect all routes in this file
 router.use(protect);
 
-// Use 'upload.single' to handle one file named 'image'
 router.put('/profile', upload.single('image'), userController.updateProfile);
+router.get('/', userController.getUsers);
 
 export default router;

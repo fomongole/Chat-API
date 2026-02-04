@@ -1,13 +1,9 @@
 import { create } from 'zustand';
-
-interface ChatUser {
-    id: string;
-    username: string;
-}
+import { User } from '@/types';
 
 interface ChatState {
-    activeUser: ChatUser | null;
-    setActiveUser: (user: ChatUser) => void;
+    activeUser: User | null;
+    setActiveUser: (user: User) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({

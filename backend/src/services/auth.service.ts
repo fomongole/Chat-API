@@ -61,26 +61,6 @@ export class AuthService {
         const token = generateToken({ id: user.id, username: user.username });
         return { token, user };
     }
-
-    async getAllUsers(currentUserId: string) {
-        return await prisma.user.findMany({
-            where: {
-                id: { not: currentUserId }
-            },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                image: true,
-                about: true,
-                isOnline: true,
-                lastSeen: true
-            },
-            orderBy: {
-                isOnline: 'desc' // Show online users first
-            }
-        });
-    }
 }
 
 export const authService = new AuthService();

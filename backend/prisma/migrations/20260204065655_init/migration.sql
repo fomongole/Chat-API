@@ -1,8 +1,18 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "about" TEXT DEFAULT 'Hey there! I''m using Chat App.',
-ADD COLUMN     "image" TEXT,
-ADD COLUMN     "isOnline" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "lastSeen" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "username" TEXT NOT NULL,
+    "about" TEXT DEFAULT 'Hey there! I''m using Chat App.',
+    "image" TEXT,
+    "isOnline" BOOLEAN NOT NULL DEFAULT false,
+    "lastSeen" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Conversation" (
@@ -31,6 +41,12 @@ CREATE TABLE "_UserConversations" (
 
     CONSTRAINT "_UserConversations_AB_pkey" PRIMARY KEY ("A","B")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
 CREATE INDEX "_UserConversations_B_index" ON "_UserConversations"("B");

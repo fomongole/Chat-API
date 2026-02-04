@@ -3,28 +3,23 @@ import { authService } from '../services/auth.service';
 import { catchAsync } from '../utils/catch.async';
 
 export const register = catchAsync(async (req: Request, res: Response) => {
-    const { token } = await authService.register(req.body);
+    // Destructure both token AND user from the service
+    const { token, user } = await authService.register(req.body);
 
     res.status(201).json({
         status: 'success',
-        token
+        token,
+        data: { user } // Send the user back to the frontend
     });
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {
-    const { token } = await authService.login(req.body);
+    // Destructure both token AND user from the service
+    const { token, user } = await authService.login(req.body);
 
     res.status(200).json({
         status: 'success',
-        token
-    });
-});
-
-export const getAllUsers = catchAsync(async (req: any, res: Response) => {
-    const users = await authService.getAllUsers(req.user.id);
-
-    res.status(200).json({
-        status: 'success',
-        data: { users }
+        token,
+        data: { user } // Send the user back to the frontend
     });
 });

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en" suppressHydrationWarning>
-        {/* Added bg-white to body to ensure it defaults to white */}
+        {/* bg-white to body to ensure it defaults to white */}
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50`}>
         <ThemeProvider>
             <ThemeInitializer />

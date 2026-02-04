@@ -5,6 +5,8 @@ interface User {
     id: string;
     username: string;
     email: string;
+    image?: string | null;
+    about?: string | null;
 }
 
 interface AuthState {
@@ -23,7 +25,7 @@ export const useAuthStore = create<AuthState>()(
             logout: () => set({ user: null, token: null }),
         }),
         {
-            name: 'auth-storage', // This automatically saves login to LocalStorage
+            name: 'auth-storage',
         }
     )
 );

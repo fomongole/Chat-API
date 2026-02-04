@@ -12,6 +12,10 @@ export const registerChatHandlers = (io: Server, socket: Socket) => {
         // Put the user in the room
         socket.join(conversation.id);
 
+        // Emit the conversation ID explicitly so frontend knows it immediately
+        // (This prevents the "id must not be null" crash on new chats)
+        socket.emit("conversation_joined", { conversationId: conversation.id });
+
         // Send history for THIS conversation only
         const history = await chatService.getConversationHistory(conversation.id);
         socket.emit("load_history", history);

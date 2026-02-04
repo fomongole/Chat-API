@@ -7,12 +7,19 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  username      String         @unique
-  password      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id       String @id @default(uuid())
+  email    String @unique
+  username String @unique
+  password String
+
+  image    String? // URL to Cloudinary
+  about    String?  @default("Hey there! I'm using Chat App.")
+  isOnline Boolean  @default(false)
+  lastSeen DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   messages      Message[]
   conversations Conversation[] @relation("UserConversations")
 }

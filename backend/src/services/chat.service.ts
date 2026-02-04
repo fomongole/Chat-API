@@ -28,14 +28,26 @@ export class ChatService {
     }
 
     async processPrivateMessage(userId: string, conversationId: string, content: string) {
+        // Using 'connect' to explicitly link the existing User and Conversation
+        // This fixes the "Argument author is missing" error
         const newMessage = await prisma.message.create({
             data: {
                 content,
-                authorId: userId,
-                conversationId: conversationId
+                author: {
+                    connect: { id: userId }
+                },
+                conversation: {
+                    connect: { id: conversationId }
+                }
             },
             include: {
-                author: { select: { username: true } }
+                author: {
+                    select: {
+                        id: true,
+                        username: true,
+                        image: true, // Return image with message
+                    }
+                }
             }
         });
 
@@ -43,6 +55,8 @@ export class ChatService {
             id: newMessage.id,
             conversationId: newMessage.conversationId,
             username: newMessage.author.username,
+            authorId: newMessage.author.id,
+            image: newMessage.author.image,
             message: newMessage.content,
             timestamp: newMessage.createdAt
         };
@@ -53,7 +67,14 @@ export class ChatService {
             where: { conversationId },
             take: limit,
             orderBy: { createdAt: 'asc' },
-            include: { author: { select: { username: true } } }
+            include: {
+                author: {
+                    select: {
+                        username: true,
+                        image: true
+                    }
+                }
+            }
         });
     }
 }

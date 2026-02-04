@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { useSocket } from '@/hooks/useSocket';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { formatLastSeen } from '@/lib/formatTime'; // Import this
 import { toast } from "sonner";
 
 export default function ChatPage() {
@@ -15,12 +16,10 @@ export default function ChatPage() {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const socket = useSocket();
+    // activeUser updates automatically
     const activeUser = useChatStore((state) => state.activeUser);
-
-    // Select the logged-in user to compare against incoming message authors
     const currentUser = useAuthStore((state) => state.user);
 
-    // Auto-scroll to bottom on new messages
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatHistory]);
@@ -28,36 +27,34 @@ export default function ChatPage() {
     useEffect(() => {
         if (!socket || !activeUser) return;
 
-        // Join the conversation when the active user changes
         socket.emit("join_conversation", { recipientId: activeUser.id });
 
-        // Listen for message history from the backend
+        // Listen for the ID immediately (Prevents crash on new chats)
+        socket.on("conversation_joined", (data: { conversationId: string }) => {
+            setConversationId(data.conversationId);
+        });
+
         socket.on("load_history", (history: any[]) => {
             setChatHistory(history);
+            // Fallback: If we reconnect, we might get ID here too
             if (history.length > 0) {
                 setConversationId(history[0].conversationId);
             }
         });
 
-        // Listen for new messages
         socket.on("receive_message", (newMessage: any) => {
             setChatHistory((prev) => [...prev, newMessage]);
 
-            // Only show a toast if the message is NOT from the current user
             if (currentUser && newMessage.username !== currentUser.username) {
                 const previewText = (newMessage.message || newMessage.content || "");
-
                 toast.info(`New message from ${newMessage.username}`, {
                     description: previewText.substring(0, 30) + (previewText.length > 30 ? '...' : ''),
-                    action: {
-                        label: 'View',
-                        onClick: () => console.log('Already in conversation or navigating...')
-                    },
                 });
             }
         });
 
         return () => {
+            socket.off("conversation_joined"); // Clean up
             socket.off("load_history");
             socket.off("receive_message");
         };
@@ -65,7 +62,8 @@ export default function ChatPage() {
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!message.trim() || !socket || !activeUser) return;
+        // Guard clause: Cannot send if conversationId is missing
+        if (!message.trim() || !socket || !activeUser || !conversationId) return;
 
         socket.emit("send_message", {
             conversationId: conversationId,
@@ -76,7 +74,6 @@ export default function ChatPage() {
         setMessage('');
     };
 
-    // State for when no user is selected in the sidebar
     if (!activeUser) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
@@ -89,17 +86,32 @@ export default function ChatPage() {
         );
     }
 
+    // Casting activeUser to any to access dynamic props if interface isn't fully updated in global types
+    const user = activeUser as any;
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-zinc-950">
             {/* Header Area */}
             <header className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                        {activeUser.username[0].toUpperCase()}
+                    <div className="h-10 w-10 rounded-full overflow-hidden bg-primary flex items-center justify-center text-white font-bold relative">
+                        {user.image ? (
+                            <img src={user.image} alt={user.username} className="h-full w-full object-cover" />
+                        ) : (
+                            <span>{user.username[0].toUpperCase()}</span>
+                        )}
                     </div>
                     <div>
-                        <h3 className="font-bold leading-none">{activeUser.username}</h3>
-                        <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Active Now</span>
+                        <h3 className="font-bold leading-none">{user.username}</h3>
+
+                        {/* FIX: Dynamic Status Text */}
+                        {user.isOnline ? (
+                            <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Active Now</span>
+                        ) : (
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                {formatLastSeen(user.lastSeen)}
+                            </span>
+                        )}
                     </div>
                 </div>
             </header>
@@ -107,7 +119,6 @@ export default function ChatPage() {
             {/* Messages Display Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {chatHistory.map((msg, i) => {
-                    // Determine if the message was sent by the active contact or the current user
                     const isFromMe = msg.username !== activeUser.username && msg.author?.username !== activeUser.username;
 
                     return (

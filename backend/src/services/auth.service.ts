@@ -39,11 +39,13 @@ export class AuthService {
                 email: userData.email,
                 username: username,
                 password: hashedPassword,
+                image: userData.image || null,
+                about: userData.about || "Hey there! I'm using Chat App."
             }
         });
 
         const token = generateToken({ id: user.id, username: user.username });
-        return { token };
+        return { token, user };
     }
 
     async login(credentials: any) {
@@ -53,8 +55,11 @@ export class AuthService {
             throw new AppError('Invalid email or password', 401);
         }
 
+        // Update to online immediately on login (optional redundancy)
+        await prisma.user.update({ where: { id: user.id }, data: { isOnline: true }});
+
         const token = generateToken({ id: user.id, username: user.username });
-        return { token };
+        return { token, user };
     }
 
     async getAllUsers(currentUserId: string) {
@@ -65,7 +70,14 @@ export class AuthService {
             select: {
                 id: true,
                 username: true,
-                email: true
+                email: true,
+                image: true,
+                about: true,
+                isOnline: true,
+                lastSeen: true
+            },
+            orderBy: {
+                isOnline: 'desc' // Show online users first
             }
         });
     }

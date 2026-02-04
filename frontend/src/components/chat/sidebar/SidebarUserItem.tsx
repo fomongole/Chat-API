@@ -57,12 +57,46 @@ export function SidebarUserItem({ user, isActive, onClick, onViewProfile }: Side
             <div className="text-left overflow-hidden flex-1">
                 <div className="flex justify-between items-center">
                     <p className="text-sm font-semibold truncate">{user.username}</p>
+
+                    {/* Typing Indicator Logic */}
+                    {user.isTyping ? (
+                        <span className="flex h-2 w-2 relative">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                                isActive ? "bg-white" : "bg-primary"
+                            }`}></span>
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                                isActive ? "bg-white" : "bg-primary"
+                            }`}></span>
+                        </span>
+                    ) : (
+                        // NEW: Unread Badge (Only show if NOT typing)
+                        (user.unreadCount || 0) > 0 && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
+                                isActive
+                                    ? "bg-white text-primary"
+                                    : "bg-red-500 text-white"
+                            }`}>
+                                {user.unreadCount}
+                            </span>
+                        )
+                    )}
                 </div>
+
+                {/* Status Text Area */}
                 <p className={`text-xs truncate ${isActive ? "text-white/70" : "text-zinc-500"}`}>
-                    {user.isPrivate
-                        ? "Profile Private"
-                        : (user.isOnline ? "Online" : formatLastSeen(user.lastSeen))
-                    }
+                    {user.isPrivate ? (
+                        "Profile Private"
+                    ) : user.isTyping ? (
+                        <span className={`font-bold animate-pulse ${
+                            isActive ? "text-white" : "text-primary"
+                        }`}>
+                            Typing...
+                        </span>
+                    ) : user.isOnline ? (
+                        "Online"
+                    ) : (
+                        formatLastSeen(user.lastSeen)
+                    )}
                 </p>
             </div>
         </button>

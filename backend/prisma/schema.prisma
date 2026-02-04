@@ -31,11 +31,21 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   content        String
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
   authorId       String
   conversationId String
-  author         User         @relation(fields: [authorId], references: [id])
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  isRead Boolean @default(false)
+
+  isDeleted Boolean @default(false)
+
+  // Reply Functionality
+  replyToId String?
+  replyTo   Message?  @relation("ReplyRelation", fields: [replyToId], references: [id])
+  replies   Message[] @relation("ReplyRelation")
+
+  author       User         @relation(fields: [authorId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
 }

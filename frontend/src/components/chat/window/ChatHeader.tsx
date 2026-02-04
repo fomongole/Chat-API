@@ -4,9 +4,10 @@ import { formatLastSeen } from '@/lib/formatTime';
 
 interface ChatHeaderProps {
     user: User;
+    isTyping: boolean;
 }
 
-export function ChatHeader({ user }: ChatHeaderProps) {
+export function ChatHeader({ user, isTyping }: ChatHeaderProps) {
     return (
         <header className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
             <div className="flex items-center gap-3">
@@ -22,7 +23,12 @@ export function ChatHeader({ user }: ChatHeaderProps) {
                     {user.isPrivate ? (
                         <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider italic">Profile Private</span>
                     ) : (
-                        user.isOnline ? (
+                        // Show "Typing..." if active, otherwise show Status
+                        isTyping ? (
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-wider animate-pulse">
+                                Typing...
+                            </span>
+                        ) : user.isOnline ? (
                             <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Active Now</span>
                         ) : (
                             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">

@@ -1,9 +1,9 @@
 import { prisma } from '../config/prisma';
+import { AppError } from '../utils/app.error';
 
 export class ChatService {
     // Find or create a 1-on-1 conversation
     async getOrCreateConversation(user1Id: string, user2Id: string) {
-        // Find a conversation that has BOTH users as participants
         let conversation = await prisma.conversation.findFirst({
             where: {
                 AND: [
@@ -27,55 +27,111 @@ export class ChatService {
         return conversation;
     }
 
-    async processPrivateMessage(userId: string, conversationId: string, content: string) {
-        // Using 'connect' to explicitly link the existing User and Conversation
-        // This fixes the "Argument author is missing" error
+    async processPrivateMessage(userId: string, conversationId: string, content: string, replyToId?: string) {
         const newMessage = await prisma.message.create({
             data: {
                 content,
-                author: {
-                    connect: { id: userId }
-                },
-                conversation: {
-                    connect: { id: conversationId }
-                }
+                author: { connect: { id: userId } },
+                conversation: { connect: { id: conversationId } },
+                ...(replyToId && { replyTo: { connect: { id: replyToId } } })
             },
             include: {
                 author: {
                     select: {
                         id: true,
                         username: true,
-                        image: true, // Return image with message
+                        image: true,
+                    }
+                },
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        author: { select: { username: true } }
                     }
                 }
             }
         });
 
-        return {
-            id: newMessage.id,
-            conversationId: newMessage.conversationId,
-            username: newMessage.author.username,
-            authorId: newMessage.author.id,
-            image: newMessage.author.image,
-            message: newMessage.content,
-            timestamp: newMessage.createdAt
-        };
+        return this.formatMessage(newMessage);
+    }
+
+    async deleteMessage(userId: string, messageId: string) {
+        const message = await prisma.message.findUnique({ where: { id: messageId } });
+
+        if (!message) throw new AppError("Message not found", 404);
+        if (message.authorId !== userId) throw new AppError("You can only delete your own messages", 403);
+
+        const deletedMessage = await prisma.message.update({
+            where: { id: messageId },
+            data: {
+                isDeleted: true,
+                content: "This message was deleted"
+            },
+            include: {
+                author: { select: { id: true, username: true, image: true } },
+                replyTo: { select: { id: true, content: true, author: { select: { username: true } } } }
+            }
+        });
+
+        return this.formatMessage(deletedMessage);
     }
 
     async getConversationHistory(conversationId: string, limit = 50) {
-        return await prisma.message.findMany({
+        const messages = await prisma.message.findMany({
             where: { conversationId },
             take: limit,
             orderBy: { createdAt: 'asc' },
             include: {
                 author: {
                     select: {
+                        id: true,
                         username: true,
                         image: true
+                    }
+                },
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        author: { select: { username: true } }
                     }
                 }
             }
         });
+
+        return messages.map(msg => this.formatMessage(msg));
+    }
+
+    // Mark all messages in a conversation as read
+    async markMessagesAsRead(conversationId: string, currentUserId: string) {
+        await prisma.message.updateMany({
+            where: {
+                conversationId: conversationId,
+                isRead: false,
+                authorId: { not: currentUserId } // Only mark OTHER people's messages as read
+            },
+            data: { isRead: true }
+        });
+    }
+
+    private formatMessage(msg: any) {
+        return {
+            id: msg.id,
+            conversationId: msg.conversationId,
+            username: msg.author.username,
+            authorId: msg.author.id,
+            image: msg.author.image,
+            message: msg.isDeleted ? "This message was deleted" : msg.content,
+            isDeleted: msg.isDeleted,
+            isRead: msg.isRead, // Include read status in response
+            timestamp: msg.createdAt,
+            replyTo: msg.replyTo ? {
+                id: msg.replyTo.id,
+                username: msg.replyTo.author.username,
+                content: msg.replyTo.isDeleted ? "Message deleted" : msg.replyTo.content
+            } : null
+        };
     }
 }
 

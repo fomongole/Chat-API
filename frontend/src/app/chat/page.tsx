@@ -3,6 +3,7 @@ import React from 'react';
 import { useChatStore } from '@/store/useChatStore';
 import { useConversation } from '@/hooks/chat/useConversation';
 import { User } from '@/types';
+import { getMessageDateLabel } from '@/lib/dateUtils';
 
 // Sub-components
 import { ChatHeader } from '@/components/chat/window/ChatHeader';
@@ -17,6 +18,10 @@ export default function ChatPage() {
         setMessage,
         chatHistory,
         sendMessage,
+        deleteMessage,
+        replyTo,
+        setReplyTo,
+        isRemoteTyping,
         scrollRef
     } = useConversation(activeUser);
 
@@ -28,22 +33,38 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-zinc-950">
-            <ChatHeader user={activeUser} />
+            <ChatHeader
+                user={activeUser}
+                isTyping={isRemoteTyping}
+            />
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-2">
                 {chatHistory.map((msg, i) => {
-                    // Determine ownership
-                    const isFromMe = msg.username !== activeUser.username && msg.author?.username !== activeUser.username;
+                    const isFromMe = msg.username !== activeUser.username;
+
+                    // Date Grouping Logic
+                    const showDateHeader = i === 0 ||
+                        getMessageDateLabel(msg.timestamp) !== getMessageDateLabel(chatHistory[i - 1].timestamp);
 
                     return (
-                        <MessageBubble
-                            key={msg.id || i}
-                            message={msg}
-                            isFromMe={isFromMe}
-                        />
+                        <React.Fragment key={msg.id || i}>
+                            {showDateHeader && (
+                                <div className="flex justify-center my-4">
+                                    <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-3 py-1 rounded-full uppercase tracking-wider">
+                                        {getMessageDateLabel(msg.timestamp)}
+                                    </span>
+                                </div>
+                            )}
+
+                            <MessageBubble
+                                message={msg}
+                                isFromMe={isFromMe}
+                                onReply={setReplyTo}
+                                onDelete={deleteMessage}
+                            />
+                        </React.Fragment>
                     );
                 })}
-                {/* Scroll Anchor */}
                 <div ref={scrollRef} />
             </div>
 
@@ -52,6 +73,8 @@ export default function ChatPage() {
                 onChange={setMessage}
                 onSend={sendMessage}
                 recipientName={activeUser.username}
+                replyTo={replyTo}
+                onCancelReply={() => setReplyTo(null)}
             />
         </div>
     );

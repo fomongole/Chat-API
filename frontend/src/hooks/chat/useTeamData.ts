@@ -7,19 +7,16 @@ import { User } from '@/types';
 
 export const useTeamData = () => {
     const [users, setUsers] = useState<User[]>([]);
-    // This state variable exists solely to force a re-render
     const [, setTick] = useState(0);
 
     const socket = useSocket();
     const setActiveUser = useChatStore((state) => state.setActiveUser);
     const selectedUser = useChatStore((state) => state.activeUser);
 
-    // Helper to force the UI to update time strings
     const forceUpdate = useCallback(() => {
         setTick(t => t + 1);
     }, []);
 
-    // 1. Initial Fetch
     useEffect(() => {
         const fetchUsers = async () => {
             try {
@@ -33,19 +30,13 @@ export const useTeamData = () => {
         fetchUsers();
     }, []);
 
-    // 2. The "Heartbeat" Timer & Wake-up Handler
     useEffect(() => {
         const intervalId = setInterval(forceUpdate, 60000);
-
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                forceUpdate();
-            }
+            if (document.visibilityState === 'visible') forceUpdate();
         };
-
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("focus", forceUpdate);
-
         return () => {
             clearInterval(intervalId);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -53,53 +44,80 @@ export const useTeamData = () => {
         };
     }, [forceUpdate]);
 
-    // 3. Socket Event Listeners
+    // Handle Clearing Unread Count when we select a user
+    useEffect(() => {
+        if (selectedUser) {
+            setUsers(prev => prev.map(u =>
+                u.id === selectedUser.id ? { ...u, unreadCount: 0 } : u
+            ));
+        }
+    }, [selectedUser]);
+
     useEffect(() => {
         if (!socket) return;
 
-        // Connectivity Update (Online/Offline)
         const handleStatusChange = (data: { userId: string, isOnline: boolean, lastSeen: string }) => {
-            // A. Update the list (Pure state update)
             setUsers(prevUsers => prevUsers.map(user => {
                 if (user.id === data.userId) {
-                    return { ...user, isOnline: data.isOnline, lastSeen: data.lastSeen };
+                    return {
+                        ...user,
+                        isOnline: data.isOnline,
+                        lastSeen: data.lastSeen,
+                        isTyping: data.isOnline ? user.isTyping : false
+                    };
                 }
                 return user;
             }));
 
-            // B. Update the active user (Side effect) - DONE SEPARATELY
             if (selectedUser?.id === data.userId) {
-                // We use the existing selectedUser and merge the new data
-                setActiveUser({
-                    ...selectedUser,
-                    isOnline: data.isOnline,
-                    lastSeen: data.lastSeen
-                });
+                setActiveUser({ ...selectedUser, isOnline: data.isOnline, lastSeen: data.lastSeen });
             }
         };
 
-        // Profile Update (Bio, Image, Privacy)
         const handleUserUpdate = (data: any) => {
-            // A. Update the list
-            setUsers(prevUsers => prevUsers.map(user => {
-                if (user.id === data.userId) {
-                    return { ...user, ...data };
+            setUsers(prev => prev.map(u => u.id === data.userId ? { ...u, ...data } : u));
+            if (selectedUser?.id === data.userId) setActiveUser({ ...selectedUser, ...data });
+        };
+
+        const handleTyping = (data: { userId: string }) => {
+            setUsers(prev => prev.map(u => u.id === data.userId ? { ...u, isTyping: true } : u));
+        };
+
+        const handleStopTyping = (data: { userId: string }) => {
+            setUsers(prev => prev.map(u => u.id === data.userId ? { ...u, isTyping: false } : u));
+        };
+
+        // This listens for the 'new_message_notification' event from the backend
+        const handleNewMessageNotification = (data: { senderId: string, message: string }) => {
+            // If we are currently talking to this user, don't increment unread count
+            // (The chat window handles marking it read)
+            if (selectedUser?.id === data.senderId) return;
+
+            setUsers(prev => prev.map(u => {
+                if (u.id === data.senderId) {
+                    return {
+                        ...u,
+                        unreadCount: (u.unreadCount || 0) + 1
+                    };
                 }
-                return user;
+                return u;
             }));
 
-            // B. Update the active user - DONE SEPARATELY
-            if (selectedUser?.id === data.userId) {
-                setActiveUser({ ...selectedUser, ...data });
-            }
+            // TODO Show a system notification toast if on another tab/chat
         };
 
         socket.on("user_status_change", handleStatusChange);
         socket.on("user_update", handleUserUpdate);
+        socket.on("user_typing", handleTyping);
+        socket.on("user_stop_typing", handleStopTyping);
+        socket.on("new_message_notification", handleNewMessageNotification);
 
         return () => {
             socket.off("user_status_change", handleStatusChange);
             socket.off("user_update", handleUserUpdate);
+            socket.off("user_typing", handleTyping);
+            socket.off("user_stop_typing", handleStopTyping);
+            socket.off("new_message_notification", handleNewMessageNotification);
         };
     }, [socket, selectedUser, setActiveUser]);
 

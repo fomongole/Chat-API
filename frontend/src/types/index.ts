@@ -6,17 +6,30 @@ export interface User {
     isOnline: boolean;
     lastSeen?: string;
     isPrivate?: boolean;
+    isTyping?: boolean; // For UI use only
+    unreadCount?: number;
 }
 
 export interface Message {
-    id?: string;
-    conversationId?: string;
-    recipientId?: string;
-    message?: string; // Some parts of your code use 'message'
-    content?: string; // Some parts might use 'content'
-    username?: string;
-    author?: {
+    id: string;
+    conversationId: string;
+    authorId: string; // Crucial for "Can I delete this?" check
+    username: string;
+    image?: string;
+
+    // Content
+    message: string;
+    content?: string; // Fallback
+
+    // Status
+    isDeleted: boolean;
+    isRead: boolean;
+    timestamp: string; // ISO String
+
+    // Reply Data
+    replyTo?: {
+        id: string;
         username: string;
-    };
-    createdAt?: string;
+        content: string;
+    } | null;
 }

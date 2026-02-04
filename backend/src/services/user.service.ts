@@ -41,6 +41,8 @@ export class UserService {
         });
     }
 
+    // This function attaches 'unreadCount' to every user
+    // This allows the frontend sidebar to show red badges instantly on load.
     async getAllUsers(currentUserId: string) {
         const users = await prisma.user.findMany({
             where: { id: { not: currentUserId } },
@@ -48,8 +50,8 @@ export class UserService {
                 id: true,
                 username: true,
                 image: true,
-                about: true,    // We fetch it, but we might strip it
-                email: true,    // We fetch it, but we might strip it
+                about: true,
+                email: true,
                 isOnline: true,
                 lastSeen: true,
                 isPrivate: true
@@ -57,9 +59,36 @@ export class UserService {
             orderBy: { isOnline: 'desc' }
         });
 
-        // ENTERPRISE PRIVACY FILTER
-        // If a user is private, we return ONLY the bare essentials needed for the chat list
-        return users.map(user => {
+        // We need to fetch unread counts in parallel for performance
+        const usersWithUnread = await Promise.all(users.map(async (user) => {
+            // Find the conversation between ME and THIS USER
+            const conversation = await prisma.conversation.findFirst({
+                where: {
+                    AND: [
+                        { participants: { some: { id: currentUserId } } },
+                        { participants: { some: { id: user.id } } }
+                    ]
+                },
+                select: { id: true }
+            });
+
+            let unreadCount = 0;
+
+            if (conversation) {
+                // Count messages where:
+                // 1. Conversation matches
+                // 2. I am NOT the author (I received them)
+                // 3. isRead is false
+                unreadCount = await prisma.message.count({
+                    where: {
+                        conversationId: conversation.id,
+                        authorId: user.id,
+                        isRead: false
+                    }
+                });
+            }
+
+            // PRIVACY FILTER
             if (user.isPrivate) {
                 return {
                     id: user.id,
@@ -68,12 +97,16 @@ export class UserService {
                     isOnline: user.isOnline,
                     lastSeen: user.lastSeen,
                     isPrivate: true,
-                    about: null, // STRICT: No bio leaked
-                    email: null  // STRICT: No email leaked
+                    about: null,
+                    email: null,
+                    unreadCount // We still show unread count internally, this is private to ME
                 };
             }
-            return user;
-        });
+
+            return { ...user, unreadCount };
+        }));
+
+        return usersWithUnread;
     }
 }
 
